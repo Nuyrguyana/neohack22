@@ -1,0 +1,22 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://rc1b-u7zlzo5gs9o7vzi4.mdb.yandexcloud.net:6432/team-11}
+    username: ${POSTGRES_USER:team-11}
+    password: ${POSTGRES_PASSWORD:ootaishu3hie0EiTo2Teicai3aeK8guk}
+
+  liquibase:
+    enabled: true
+    change-log: db/changelog/db.changelog-master.xml
+    drop-first: false
+    default-schema: education_platform
+
+application:
+  jwt:
+    secret: ${TOKEN_SECRET_KEY:mkASfjdioeijhfouebfka`bsdkhvbsd;vbk'asejfiwehfawfawefweag}
+    header-name: ${TOKEN_HEADER_NAME:Authorization}
+    prefix: ${TOKEN_PREFIX:Bearer }
+    expiration: ${TOKEN_EXPIRATION_TIME:3600000000} #3600000 = one hour
+

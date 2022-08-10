@@ -1,0 +1,63 @@
+stages:
+  - build
+  - test
+  - deploy
+
+
+docker-build:
+  image: docker:latest
+  stage: build
+  only:
+    - main
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - export DOCKER_BUILDKIT=1
+    - export COMPOSE_DOCKER_CLI_BUILD=1
+  script:
+    # build backend
+    - docker build -t $CI_REGISTRY_IMAGE:"backend-"$CI_COMMIT_SHORT_SHA ./backend
+    - docker push $CI_REGISTRY_IMAGE:"backend-"$CI_COMMIT_SHORT_SHA
+
+    # build frontend
+    - docker build -t $CI_REGISTRY_IMAGE:"frontend-"$CI_COMMIT_SHORT_SHA ./frontend
+    - docker push $CI_REGISTRY_IMAGE:"frontend-"$CI_COMMIT_SHORT_SHA
+
+
+docker-test:
+  stage: test
+  only:
+    - main
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    # test pull backend
+    - docker pull $CI_REGISTRY_IMAGE:backend-$CI_COMMIT_SHORT_SHA
+
+    # test pull frontend
+    - docker pull $CI_REGISTRY_IMAGE:frontend-$CI_COMMIT_SHORT_SHA
+
+
+deploy-to-kuber:
+  stage: deploy
+  only:
+    - main
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script:
+    - kubectl config set-cluster k8s --server=$KUBER_URL --insecure-skip-tls-verify=true
+    - kubectl config set-credentials $KUBER_USER --token=$KUBER_TOKEN
+    - kubectl config set-context default --cluster=k8s --user=$KUBER_USER
+    - kubectl config use-context default
+    
+    # delete docker-registry secret
+    - kubectl delete secret regcred -n $KUBER_NAMESPACE
+
+    # create docker-registry secret
+    - kubectl create secret docker-registry regcred --docker-server=$CI_REGISTRY --docker-username=$CI_REGISTRY_USER --docker-password=$CI_REGISTRY_PASSWORD --docker-email="test@test.test" -n $KUBER_NAMESPACE
+    - |
+      eval "cat << EOF       
+      $(cat manifests/*.yaml)
+      EOF" | kubectl apply -f -
